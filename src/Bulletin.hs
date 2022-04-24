@@ -10,6 +10,7 @@ import qualified Data.Time.Clock as C
 import qualified Data.Map as M
 import qualified Control.Concurrent.STM as STM
 import Control.Monad.IO.Class (liftIO)
+import qualified Lucid as H
 
 -- | Entry point. Starts a bulletin-board server at port 3000.
 main :: IO ()
@@ -71,14 +72,17 @@ routes appstateVar =
 -- | Respond with a list of all posts
 displayAllPosts :: Posts -> Twain.Response
 displayAllPosts =
-  Twain.text . T.unlines . map ppPost . M.elems
+  Twain.html . H.renderBS . template "Bulletin board - posts" . allPostsHtml
 
 -- | Respond with a specific post or return 404
 displayPost :: Integer -> Posts -> Twain.Response
 displayPost pid posts =
   case M.lookup pid posts of
     Just post ->
-      Twain.text (ppPost post)
+      Twain.html $
+        H.renderBS $
+          template "Bulletin board - posts" $
+            postHtml pid post
 
     Nothing ->
       Twain.raw
@@ -192,3 +196,56 @@ deletePost pid appstateVar =
 
       Nothing ->
         pure False
+
+-- ** HTML
+
+type Html = H.Html ()
+
+-- | HTML boilerplate template
+template :: T.Text -> Html -> Html
+template title content =
+  H.doctypehtml_ $ do
+    H.head_ $ do
+      H.meta_ [ H.charset_ "utf-8" ]
+      H.title_ (H.toHtml title)
+      H.link_ [ H.rel_ "stylesheet", H.type_ "text/css", H.href_ "/style.css"  ]
+    H.body_ $ do
+      H.div_ [ H.class_ "main" ] $ do
+        H.h1_ [ H.class_ "logo" ] $
+          H.a_ [H.href_ "/"] "Bulletin Board"
+        content
+
+-- | All posts page.
+allPostsHtml :: Posts -> Html
+allPostsHtml posts = do
+  H.p_ [ H.class_ "new-button" ] $
+    H.a_ [H.href_ "/new"] "New Post"
+  mapM_ (uncurry postHtml) $ reverse $ M.toList posts
+
+-- | A single post as HTML.
+postHtml :: Integer -> Post -> Html
+postHtml pid post = do
+  H.div_ [ H.class_ "post" ] $ do
+    H.div_ [ H.class_ "post-header" ] $ do
+      H.h2_ [ H.class_ "post-title" ] $
+        H.a_
+          [H.href_ ("/post/" <> T.pack (show pid))]
+          (H.toHtml $ pTitle post)
+
+      H.span_ $ do
+        H.p_ [ H.class_ "post-time" ] $ H.toHtml (T.pack (show (pTime post)))
+        H.p_ [ H.class_ "post-author" ] $ H.toHtml (pAuthor post)
+
+    H.div_ [H.class_ "post-content"] $ do
+      H.toHtml (pContent post)
+
+    -- delete button
+    H.form_
+      [ H.method_ "post"
+      , H.action_ ("/post/" <> T.pack (show pid) <> "/delete")
+      , H.onsubmit_ "return confirm('Are you sure?')"
+      , H.class_ "delete-post"
+      ]
+      ( do
+        H.input_ [H.type_ "submit", H.value_ "Delete", H.class_ "deletebtn"]
+      )
