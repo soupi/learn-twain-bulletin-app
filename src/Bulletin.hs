@@ -54,11 +54,27 @@ routes appstateVar =
 
   -- A page for creating a new post
   , Twain.get "/new" $
-    Twain.send $ Twain.text "not yet implemented"
+    Twain.send handleGetNewPost
 
   -- A request to submit a new page
-  , Twain.post "/new" $
-    Twain.send $ Twain.text "not yet implemented"
+  , Twain.post "/new" $ do
+    title <- Twain.param "title"
+    author <- Twain.param "author"
+    content <- Twain.param "content"
+    time <- liftIO C.getCurrentTime
+
+    response <-
+      liftIO $ handlePostNewPost
+        ( Post
+          { pTitle = title
+          , pAuthor = author
+          , pContent = content
+          , pTime = time
+          }
+        )
+        appstateVar
+
+    Twain.send response
 
   -- A request to delete a specific post
   , Twain.post "/post/:id/delete" $ do
@@ -104,6 +120,20 @@ handleDeletePost pid appstateVar = do
           Twain.status404
           [("Content-Type", "text/html; charset=utf-8")]
           "404 Not Found."
+
+-- | Respond with the new post page.
+handleGetNewPost :: Twain.Response
+handleGetNewPost =
+  Twain.html $
+    H.renderBS $
+      template "Bulletin board - posts" $
+        newPostHtml
+
+-- | Respond with the new post page.
+handlePostNewPost :: Post -> STM.TVar AppState -> IO Twain.Response
+handlePostNewPost post appstateVar = do
+  pid <- newPost post appstateVar
+  pure $ Twain.redirect302 ("/post/" <> T.pack (show pid))
 
 -- ** Application state
 
@@ -249,3 +279,18 @@ postHtml pid post = do
       ( do
         H.input_ [H.type_ "submit", H.value_ "Delete", H.class_ "deletebtn"]
       )
+
+-- | A new post form.
+newPostHtml :: Html
+newPostHtml = do
+  H.form_
+    [ H.method_ "post"
+    , H.action_ "/new"
+    , H.class_ "new-post"
+    ]
+    ( do
+      H.p_ $ H.input_ [H.type_ "text", H.name_ "title", H.placeholder_ "Title..."]
+      H.p_ $ H.input_ [H.type_ "text", H.name_ "author", H.placeholder_ "Author..."]
+      H.p_ $ H.textarea_ [H.name_ "content", H.placeholder_ "Content..."] ""
+      H.p_ $ H.input_ [H.type_ "submit", H.value_ "Submit", H.class_ "submit-button"]
+    )
