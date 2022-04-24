@@ -1,0 +1,14 @@
+resolver: nightly-2022-04-06
+
+# uncomment for static executables
+# docker:
+#   enable: true
+#   image: utdemir/ghc-musl:v24-ghc922
+
+packages:
+- .
+
+extra-deps:
+- twain-2.1.0.0
+
+allow-newer: true
