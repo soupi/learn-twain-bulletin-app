@@ -11,6 +11,7 @@ import qualified Data.Map as M
 import qualified Control.Concurrent.STM as STM
 import Control.Monad.IO.Class (liftIO)
 import qualified Lucid as H
+import qualified Network.Wai.Middleware.RequestLogger as Logger
 
 -- | Entry point. Starts a bulletin-board server at port 3000.
 main :: IO ()
@@ -25,7 +26,7 @@ runServer port = do
     , "http://localhost:" <> show port
     , "(ctrl-c to quit)"
     ]
-  run port app
+  run port (Logger.logStdoutDev app)
 
 -- ** Application and routing
 
@@ -81,6 +82,10 @@ routes appstateVar =
     pid <- Twain.param "id"
     response <- liftIO $ handleDeletePost pid appstateVar
     Twain.send response
+
+  -- css styling
+  , Twain.get "/style.css" $
+    Twain.send $ Twain.css ".main { width: 900px; margin: auto; }"
   ]
 
 -- ** Business logic
