@@ -11,6 +11,24 @@ packages:
       sha256: 09cd5490f751e8740f294483d02987a2a387b7dfd4b0db0b0d66c9cd391a9d48
   original:
     hackage: twain-2.1.0.0
+- completed:
+    name: sqlite-easy
+    version: 0.1.0.0
+    git: https://gitlab.com/gilmi/sqlite-easy
+    pantry-tree:
+      size: 569
+      sha256: fd388b3d587a24350292254ba51ca4e605e65406931b26b5b071101ad30b9557
+    commit: 5e70f4905b72512bb1d216d9fd5797856ef4b0a2
+  original:
+    git: https://gitlab.com/gilmi/sqlite-easy
+    commit: 5e70f4905b72512bb1d216d9fd5797856ef4b0a2
+- completed:
+    hackage: direct-sqlite-2.3.26@sha256:04e835402f1508abca383182023e4e2b9b86297b8533afbd4e57d1a5652e0c23,3718
+    pantry-tree:
+      size: 770
+      sha256: 11874ab21e10c5b54cd1e02a037b677dc1e2ee9986f38c599612c56654dc01c3
+  original:
+    hackage: direct-sqlite-2.3.26@sha256:04e835402f1508abca383182023e4e2b9b86297b8533afbd4e57d1a5652e0c23,3718
 snapshots:
 - completed:
     size: 545843

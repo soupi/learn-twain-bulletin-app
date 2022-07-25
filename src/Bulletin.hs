@@ -1,4 +1,5 @@
 {-# language OverloadedStrings #-}
+{-# language OverloadedRecordDot #-}
 
 -- | A bulletin board app built with twain.
 module Bulletin where
@@ -6,12 +7,12 @@ module Bulletin where
 import qualified Web.Twain as Twain
 import Network.Wai.Handler.Warp (run, Port)
 import qualified Data.Text as T
-import qualified Data.Time.Clock as C
-import qualified Data.Map as M
-import qualified Control.Concurrent.STM as STM
 import Control.Monad.IO.Class (liftIO)
 import qualified Lucid as H
 import qualified Network.Wai.Middleware.RequestLogger as Logger
+import qualified Database.Sqlite.Easy as DB
+import Post
+import DB
 
 -- | Entry point. Starts a bulletin-board server at port 3000.
 main :: IO ()
@@ -33,25 +34,24 @@ runServer port = do
 -- | Bulletin board application description.
 mkApp :: IO Twain.Application
 mkApp = do
-  dummyPosts <- makeDummyPosts
-  appstateVar <- STM.newTVarIO AppState{asNextId = 1, asPosts = dummyPosts}
+  db <- mkDB "/tmp/sqlitebulletintest.db"
   pure $ foldr ($)
     (Twain.notFound $ Twain.send $ Twain.text "Error: not found.")
-    (routes appstateVar)
+    (routes db)
 
 -- | Bulletin board routing.
-routes :: STM.TVar AppState -> [Twain.Middleware]
-routes appstateVar =
+routes :: DB -> [Twain.Middleware]
+routes db =
   -- Our main page, which will display all of the bulletins
   [ Twain.get "/" $ do
-    posts <- liftIO $ asPosts <$> STM.readTVarIO appstateVar
+    posts <- liftIO $ db.getPosts
     Twain.send (displayAllPosts posts)
 
   -- A page for a specific post
   , Twain.get "/post/:id" $ do
     pid <- Twain.param "id"
-    posts <- liftIO $ asPosts <$> STM.readTVarIO appstateVar
-    Twain.send (displayPost pid posts)
+    post <- liftIO $ db.getPost pid
+    Twain.send (displayPost post)
 
   -- A page for creating a new post
   , Twain.get "/new" $
@@ -62,7 +62,6 @@ routes appstateVar =
     title <- Twain.param "title"
     author <- Twain.param "author"
     content <- Twain.param "content"
-    time <- liftIO C.getCurrentTime
 
     response <-
       liftIO $ handlePostNewPost
@@ -70,17 +69,17 @@ routes appstateVar =
           { pTitle = title
           , pAuthor = author
           , pContent = content
-          , pTime = time
+          , pTime = undefined
           }
         )
-        appstateVar
+        db
 
     Twain.send response
 
   -- A request to delete a specific post
   , Twain.post "/post/:id/delete" $ do
     pid <- Twain.param "id"
-    response <- liftIO $ handleDeletePost pid appstateVar
+    response <- liftIO $ handleDeletePost pid db
     Twain.send response
 
   -- css styling
@@ -91,30 +90,22 @@ routes appstateVar =
 -- ** Business logic
 
 -- | Respond with a list of all posts
-displayAllPosts :: Posts -> Twain.Response
+displayAllPosts :: [(DB.Int64, Post)] -> Twain.Response
 displayAllPosts =
   Twain.html . H.renderBS . template "Bulletin board - posts" . allPostsHtml
 
 -- | Respond with a specific post or return 404
-displayPost :: Integer -> Posts -> Twain.Response
-displayPost pid posts =
-  case M.lookup pid posts of
-    Just post ->
+displayPost :: (DB.Int64, Post) -> Twain.Response
+displayPost (pid, post) =
       Twain.html $
         H.renderBS $
           template "Bulletin board - posts" $
             postHtml pid post
 
-    Nothing ->
-      Twain.raw
-        Twain.status404
-        [("Content-Type", "text/plain; charset=utf-8")]
-        "404 Not found."
-
 -- | Delete a post and respond to the user.
-handleDeletePost :: Integer -> STM.TVar AppState -> IO Twain.Response
-handleDeletePost pid appstateVar = do
-  found <- deletePost pid appstateVar
+handleDeletePost :: DB.Int64 -> DB -> IO Twain.Response
+handleDeletePost pid db = do
+  found <- True <$ db.deletePostById pid
   pure $
     if found
       then
@@ -135,102 +126,10 @@ handleGetNewPost =
         newPostHtml
 
 -- | Respond with the new post page.
-handlePostNewPost :: Post -> STM.TVar AppState -> IO Twain.Response
-handlePostNewPost post appstateVar = do
-  pid <- newPost post appstateVar
+handlePostNewPost :: Post -> DB -> IO Twain.Response
+handlePostNewPost post db = do
+  pid <- db.insertPost post
   pure $ Twain.redirect302 ("/post/" <> T.pack (show pid))
-
--- ** Application state
-
--- | Application state.
-data AppState
-  = AppState
-    { asNextId :: Integer -- ^ The id for the next post
-    , asPosts :: Posts -- ^ All posts
-    }
-
--- ** Posts
-
--- | A mapping from a post id to a post.
-type Posts = M.Map Integer Post
-
--- | A description of a bulletin board post.
-data Post
-  = Post
-    { pTime :: C.UTCTime
-    , pAuthor :: T.Text
-    , pTitle :: T.Text
-    , pContent :: T.Text
-    }
-
--- | Create an initial posts Map with a dummy post.
-makeDummyPosts :: IO Posts
-makeDummyPosts = do
-  time <- C.getCurrentTime
-  pure $
-    M.singleton
-      0
-      ( Post
-        { pTime = time
-        , pTitle = "Dummy title"
-        , pAuthor = "Dummy author"
-        , pContent = "bla bla bla..."
-        }
-      )
-
--- | Prettyprint a post to text.
-ppPost :: Post -> T.Text
-ppPost post =
-  let
-    header =
-      T.unwords
-        [ "[" <> T.pack (show (pTime post)) <> "]"
-        , pTitle post
-        , "by"
-        , pAuthor post
-        ]
-    seperator =
-      T.replicate (T.length header) "-"
-  in
-    T.unlines
-      [ seperator
-      , header
-      , seperator
-      , pContent post
-      , seperator
-      ]
-
--- | Add a new post to the store.
-newPost :: Post -> STM.TVar AppState -> IO Integer
-newPost post appstateVar = do
-  STM.atomically $ do
-    appstate <- STM.readTVar appstateVar
-    STM.writeTVar
-      appstateVar
-      ( appstate
-        { asNextId = asNextId appstate + 1
-        , asPosts = M.insert (asNextId appstate) post (asPosts appstate)
-        }
-      )
-    pure (asNextId appstate)
-
--- | Delete a post from the store.
-deletePost :: Integer -> STM.TVar AppState -> IO Bool
-deletePost pid appstateVar =
-  STM.atomically $ do
-    appstate <- STM.readTVar appstateVar
-    case M.lookup pid (asPosts appstate) of
-      Just{} -> do
-        STM.writeTVar
-          appstateVar
-          ( appstate
-            { asPosts = M.delete pid (asPosts appstate)
-            }
-          )
-        pure True
-
-      Nothing ->
-        pure False
 
 -- ** HTML
 
@@ -251,14 +150,14 @@ template title content =
         content
 
 -- | All posts page.
-allPostsHtml :: Posts -> Html
+allPostsHtml :: [(DB.Int64, Post)] -> Html
 allPostsHtml posts = do
   H.p_ [ H.class_ "new-button" ] $
     H.a_ [H.href_ "/new"] "New Post"
-  mapM_ (uncurry postHtml) $ reverse $ M.toList posts
+  mapM_ (uncurry postHtml) posts
 
 -- | A single post as HTML.
-postHtml :: Integer -> Post -> Html
+postHtml :: DB.Int64 -> Post -> Html
 postHtml pid post = do
   H.div_ [ H.class_ "post" ] $ do
     H.div_ [ H.class_ "post-header" ] $ do
