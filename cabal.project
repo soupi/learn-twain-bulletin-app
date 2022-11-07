@@ -1,0 +1,6 @@
+packages: *.cabal
+
+source-repository-package
+  type: git
+  location: https://gitlab.com/gilmi/sqlite-easy.git
+  tag: 21d7764b1a5f5c3efd1a4433bd8da59f728e0b5d

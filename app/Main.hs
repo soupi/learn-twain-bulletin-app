@@ -1,4 +1,7 @@
 import qualified Bulletin
+import System.Environment
 
 main :: IO ()
-main = Bulletin.main
+main = do
+  port <- maybe 3000 read <$> lookupEnv "PORT"
+  Bulletin.runServer port

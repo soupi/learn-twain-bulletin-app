@@ -11,7 +11,9 @@ packages:
 extra-deps:
 - twain-2.1.0.0
 - git: https://gitlab.com/gilmi/sqlite-easy
-  commit: 5e70f4905b72512bb1d216d9fd5797856ef4b0a2
+  commit: 21d7764b1a5f5c3efd1a4433bd8da59f728e0b5d
 - direct-sqlite-2.3.26@sha256:04e835402f1508abca383182023e4e2b9b86297b8533afbd4e57d1a5652e0c23,3718
+- migrant-core-0.1.0.2
+- resource-pool-0.3.1.0
 
 allow-newer: true

@@ -9,6 +9,7 @@ import qualified Data.Text as T
 import qualified Database.Sqlite.Easy as DB
 import Post
 import Control.Monad ((>=>))
+import GHC.Stack (HasCallStack)
 
 -- ** Database
 
@@ -20,10 +21,12 @@ data DB
     , deletePostById :: DB.Int64 -> IO ()
     }
 
+-- * Handler
+
 mkDB :: DB.ConnectionString -> IO DB
 mkDB connstr = do
   pool <- DB.createSqlitePool connstr
-  -- [] <- DB.withResource pool $ DB.run setupSQL
+  DB.withResource pool runMigrations
   pure $ DB
     { getPost = \i ->
       DB.withResource pool $
@@ -53,6 +56,38 @@ decodeRow row =
     [DB.SQLInteger i, DB.SQLText dtbs, DB.SQLText author, DB.SQLText title, DB.SQLText content] ->
       (i, Post (read $ T.unpack dtbs) author title content)
     _ -> error $ show row
+
+-- * Database migrations
+
+runMigrations :: HasCallStack => DB.Database -> IO ()
+runMigrations = DB.migrate migrations migrateUp migrateDown
+
+migrations :: [DB.MigrationName]
+migrations =
+  [ "posts"
+  ]
+
+migrateUp :: HasCallStack => DB.MigrationName -> DB.Database -> IO ()
+migrateUp name conn =
+  case name of
+    "posts" -> do
+      [] <- DB.run
+        "create table posts(id integer primary key autoincrement, author text, title text, content text, time datetime default (datetime('now')))"
+        conn
+      pure ()
+
+migrateDown :: HasCallStack => DB.MigrationName -> DB.Database -> IO ()
+migrateDown name conn =
+  case name of
+    "posts" -> do
+      [] <- DB.run
+        "DROP TABLE posts"
+        conn
+      pure ()
+
+-----------------------
+
+-- * Actions
 
 insertPostSQL :: Post -> (DB.SQL, [DB.SQLData])
 insertPostSQL post =

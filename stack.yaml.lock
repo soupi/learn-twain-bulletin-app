@@ -7,31 +7,45 @@ packages:
 - completed:
     hackage: twain-2.1.0.0@sha256:9b434a5290791ab370845ded0d2167377cdc1478a592b87c5f5a9d499d069ba3,1864
     pantry-tree:
-      size: 500
       sha256: 09cd5490f751e8740f294483d02987a2a387b7dfd4b0db0b0d66c9cd391a9d48
+      size: 500
   original:
     hackage: twain-2.1.0.0
 - completed:
+    commit: 21d7764b1a5f5c3efd1a4433bd8da59f728e0b5d
+    git: https://gitlab.com/gilmi/sqlite-easy
     name: sqlite-easy
-    version: 0.1.0.0
-    git: https://gitlab.com/gilmi/sqlite-easy
     pantry-tree:
-      size: 569
-      sha256: fd388b3d587a24350292254ba51ca4e605e65406931b26b5b071101ad30b9557
-    commit: 5e70f4905b72512bb1d216d9fd5797856ef4b0a2
+      sha256: ef03f5ccfb83769018a9ffc8d5902c4b51eb5668031fe34e6c3cbd99286c0132
+      size: 700
+    version: 0.1.0.0
   original:
+    commit: 21d7764b1a5f5c3efd1a4433bd8da59f728e0b5d
     git: https://gitlab.com/gilmi/sqlite-easy
-    commit: 5e70f4905b72512bb1d216d9fd5797856ef4b0a2
 - completed:
     hackage: direct-sqlite-2.3.26@sha256:04e835402f1508abca383182023e4e2b9b86297b8533afbd4e57d1a5652e0c23,3718
     pantry-tree:
-      size: 770
       sha256: 11874ab21e10c5b54cd1e02a037b677dc1e2ee9986f38c599612c56654dc01c3
+      size: 770
   original:
     hackage: direct-sqlite-2.3.26@sha256:04e835402f1508abca383182023e4e2b9b86297b8533afbd4e57d1a5652e0c23,3718
+- completed:
+    hackage: migrant-core-0.1.0.2@sha256:2ad8263b34aeaec8a5c18a8849aed5d3a3cb80554489dd9e37fcf67a63b83535,1429
+    pantry-tree:
+      sha256: d0ba3a7909b2999216bb7031e3578590a967d5c5fd98451fa2b87822a6b38473
+      size: 730
+  original:
+    hackage: migrant-core-0.1.0.2
+- completed:
+    hackage: resource-pool-0.3.1.0@sha256:dbaadfcc3c1be5391336e2016b28bb2d0c534f245ba9f5af5ed1d5125afc8c1a,1280
+    pantry-tree:
+      sha256: e2fc51ec2b5a126caab04688b40ec64fd6f7e3d9251e947a87c5ce3a6bc447bc
+      size: 406
+  original:
+    hackage: resource-pool-0.3.1.0
 snapshots:
 - completed:
+    sha256: e59512928378e2411fea0269b3a658e31c8b24c9824dc213361dcce50a2b3f29
     size: 545843
     url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2022/4/6.yaml
-    sha256: e59512928378e2411fea0269b3a658e31c8b24c9824dc213361dcce50a2b3f29
   original: nightly-2022-04-06
