@@ -11,7 +11,8 @@ import Post
 import Control.Monad ((>=>))
 import GHC.Stack (HasCallStack)
 
--- ** Database
+-----------------------
+-- * Database handler API
 
 data DB
   = DB
@@ -21,42 +22,21 @@ data DB
     , deletePostById :: DB.Int64 -> IO ()
     }
 
--- * Handler
+-----------------------
+-- * Handler smart constructor
 
 mkDB :: DB.ConnectionString -> IO DB
 mkDB connstr = do
   pool <- DB.createSqlitePool connstr
   DB.withResource pool runMigrations
   pure $ DB
-    { getPost = \i ->
-      DB.withResource pool $
-        fmap (decodeRow . head) . uncurry DB.runWith (getPostSQL i)
-
-    , getPosts =
-      DB.withResource pool $
-        fmap (fmap decodeRow) . DB.run getPostsSQL
-
-    , insertPost = \post ->
-      DB.withResource pool $ \db ->
-        DB.asTransaction db $ do
-          [] <- uncurry DB.runWith (insertPostSQL post) db
-          [[DB.SQLInteger i]] <- DB.run getLastPostIdSQL db
-          pure i
-
-    , deletePostById = \i ->
-      DB.withResource pool $
-        uncurry DB.runWith (deletePostSQL i) >=> \case
-          [] -> pure ()
-          rs -> error (show rs)
+    { getPost = getPostFromDb pool
+    , getPosts = getPostsFromDb pool
+    , insertPost = insertPostToDb pool
+    , deletePostById = deletePostByIdFromDb pool
     }
 
-decodeRow :: [DB.SQLData] -> (DB.Int64, Post)
-decodeRow row =
-  case row of
-    [DB.SQLInteger i, DB.SQLText dtbs, DB.SQLText author, DB.SQLText title, DB.SQLText content] ->
-      (i, Post (read $ T.unpack dtbs) author title content)
-    _ -> error $ show row
-
+-----------------------
 -- * Database migrations
 
 runMigrations :: HasCallStack => DB.Database -> IO ()
@@ -86,8 +66,35 @@ migrateDown name conn =
       pure ()
 
 -----------------------
+-- * Database actions
 
--- * Actions
+getPostFromDb :: DB.Pool DB.Database -> DB.Int64 -> IO (DB.Int64, Post)
+getPostFromDb pool id' =
+  DB.withResource pool $
+    fmap (decodeRow . head) . uncurry DB.runWith (getPostSQL id')
+
+getPostsFromDb :: DB.Pool DB.Database -> IO [(DB.Int64, Post)]
+getPostsFromDb pool =
+  DB.withResource pool $
+    fmap (fmap decodeRow) . DB.run getPostsSQL
+
+insertPostToDb :: DB.Pool DB.Database -> Post -> IO DB.Int64
+insertPostToDb pool post =
+  DB.withResource pool $ \db ->
+    DB.asTransaction db $ do
+      [] <- uncurry DB.runWith (insertPostSQL post) db
+      [[DB.SQLInteger i]] <- DB.run getLastPostIdSQL db
+      pure i
+
+deletePostByIdFromDb :: DB.Pool DB.Database -> DB.Int64 -> IO ()
+deletePostByIdFromDb pool id' =
+  DB.withResource pool $
+    uncurry DB.runWith (deletePostSQL id') >=> \case
+      [] -> pure ()
+      rs -> error (show rs)
+
+-----------------------
+-- ** SQL
 
 insertPostSQL :: Post -> (DB.SQL, [DB.SQLData])
 insertPostSQL post =
@@ -110,3 +117,13 @@ getPostSQL i =
 deletePostSQL :: DB.Int64 -> (DB.SQL, [DB.SQLData])
 deletePostSQL i =
   ("delete from posts where id = ?", [DB.SQLInteger i])
+
+-----------------------
+-- ** Decode row
+
+decodeRow :: [DB.SQLData] -> (DB.Int64, Post)
+decodeRow row =
+  case row of
+    [DB.SQLInteger i, DB.SQLText dtbs, DB.SQLText author, DB.SQLText title, DB.SQLText content] ->
+      (i, Post (read $ T.unpack dtbs) author title content)
+    _ -> error $ show row

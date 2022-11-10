@@ -1,13 +1,20 @@
 # Building a bulletin board using Haskell, twain and friends
 
-Check out the [blog post](https://gilmi.me/blog/post/2020/12/05/scotty-bulletin-board) for the scotty tutorial.
-This version uses [twain](https://hackage.haskell.org/package/twain) instead.
+Check out the [blog post](https://gilmi.me/blog/post/2022/04/24/learn-twain-bulletin-app).
+
+This version uses SQLite3 instead of STM!
 
 ## Run with
 
 
 ```sh
-stack build && stack run
+stack run
+```
+
+or
+
+```sh
+cabal run
 ```
 
 ## Static executable

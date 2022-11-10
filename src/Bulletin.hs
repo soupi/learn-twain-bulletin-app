@@ -14,10 +14,6 @@ import qualified Database.Sqlite.Easy as DB
 import Post
 import DB
 
--- | Entry point. Starts a bulletin-board server at port 3000.
-main :: IO ()
-main = runServer 3000
-
 -- | Run a bulletin-board server at at specific port.
 runServer :: Port -> IO ()
 runServer port = do
