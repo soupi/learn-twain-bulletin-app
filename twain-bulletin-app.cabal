@@ -30,7 +30,7 @@ library
                      , warp
                      , wai-extra
                      , lucid
-                     , sqlite-easy
+                     , sqlite-easy >= 0.2.0.0
 
 executable bulletin-app
   hs-source-dirs:      app

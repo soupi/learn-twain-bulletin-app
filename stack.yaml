@@ -10,7 +10,7 @@ packages:
 
 extra-deps:
 - twain-2.1.0.0
-- sqlite-easy-0.1.0.0
+- sqlite-easy-0.2.0.0
 - direct-sqlite-2.3.26@sha256:04e835402f1508abca383182023e4e2b9b86297b8533afbd4e57d1a5652e0c23,3718
 - migrant-core-0.1.0.2
 - resource-pool-0.3.1.0

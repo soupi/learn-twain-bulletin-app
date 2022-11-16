@@ -5,11 +5,10 @@
 -- | Database interaction
 module DB (mkDB, DB(..)) where
 
+import GHC.Stack (HasCallStack)
 import qualified Data.Text as T
 import qualified Database.Sqlite.Easy as DB
 import Post
-import Control.Monad ((>=>))
-import GHC.Stack (HasCallStack)
 
 -----------------------
 -- * Database handler API
@@ -28,7 +27,7 @@ data DB
 mkDB :: DB.ConnectionString -> IO DB
 mkDB connstr = do
   pool <- DB.createSqlitePool connstr
-  DB.withResource pool runMigrations
+  DB.withPool pool runMigrations
   pure $ DB
     { getPost = getPostFromDb pool
     , getPosts = getPostsFromDb pool
@@ -39,7 +38,7 @@ mkDB connstr = do
 -----------------------
 -- * Database migrations
 
-runMigrations :: HasCallStack => DB.Database -> IO ()
+runMigrations :: HasCallStack => DB.SQLite ()
 runMigrations = DB.migrate migrations migrateUp migrateDown
 
 migrations :: [DB.MigrationName]
@@ -47,49 +46,46 @@ migrations =
   [ "posts"
   ]
 
-migrateUp :: HasCallStack => DB.MigrationName -> DB.Database -> IO ()
-migrateUp name conn =
-  case name of
-    "posts" -> do
-      [] <- DB.run
-        "create table posts(id integer primary key autoincrement, author text, title text, content text, time datetime default (datetime('now')))"
-        conn
-      pure ()
+migrateUp :: HasCallStack => DB.MigrationName -> DB.SQLite ()
+migrateUp = \case
+  "posts" -> do
+    [] <- DB.run
+      "create table posts(id integer primary key autoincrement, author text, title text, content text, time datetime default (datetime('now')))"
+    pure ()
+  name -> error $ "unexpected migration: " <> show name
 
-migrateDown :: HasCallStack => DB.MigrationName -> DB.Database -> IO ()
-migrateDown name conn =
-  case name of
-    "posts" -> do
-      [] <- DB.run
-        "DROP TABLE posts"
-        conn
-      pure ()
+migrateDown :: HasCallStack => DB.MigrationName -> DB.SQLite ()
+migrateDown = \case
+  "posts" -> do
+    [] <- DB.run "DROP TABLE posts"
+    pure ()
+  name -> error $ "unexpected migration: " <> show name
 
 -----------------------
 -- * Database actions
 
 getPostFromDb :: DB.Pool DB.Database -> DB.Int64 -> IO (DB.Int64, Post)
 getPostFromDb pool id' =
-  DB.withResource pool $
-    fmap (decodeRow . head) . uncurry DB.runWith (getPostSQL id')
+  DB.withPool pool $
+    fmap (decodeRow . head) $ uncurry DB.runWith (getPostSQL id')
 
 getPostsFromDb :: DB.Pool DB.Database -> IO [(DB.Int64, Post)]
 getPostsFromDb pool =
-  DB.withResource pool $
-    fmap (fmap decodeRow) . DB.run getPostsSQL
+  DB.withPool pool $
+    fmap (fmap decodeRow) $ DB.run getPostsSQL
 
 insertPostToDb :: DB.Pool DB.Database -> Post -> IO DB.Int64
 insertPostToDb pool post =
-  DB.withResource pool $ \db ->
-    DB.asTransaction db $ do
-      [] <- uncurry DB.runWith (insertPostSQL post) db
-      [[DB.SQLInteger i]] <- DB.run getLastPostIdSQL db
+  DB.withPool pool $
+    DB.transaction $ do
+      [] <- uncurry DB.runWith (insertPostSQL post)
+      [[DB.SQLInteger i]] <- DB.run getLastPostIdSQL
       pure i
 
 deletePostByIdFromDb :: DB.Pool DB.Database -> DB.Int64 -> IO ()
 deletePostByIdFromDb pool id' =
-  DB.withResource pool $
-    uncurry DB.runWith (deletePostSQL id') >=> \case
+  DB.withPool pool $
+    uncurry DB.runWith (deletePostSQL id') >>= \case
       [] -> pure ()
       rs -> error (show rs)
 
