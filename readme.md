@@ -1,8 +1,8 @@
-# Building a bulletin board using Haskell, twain and friends
+# Building a bulletin board using Haskell, twain, sqlite-easy and friends
 
 Check out the [blog post](https://gilmi.me/blog/post/2022/04/24/learn-twain-bulletin-app).
 
-This version uses SQLite3 instead of STM!
+This version uses SQLite3 using [sqlite-easy](https://hackage.haskell.org/package/sqlite-easy) instead of STM!
 
 ## Run with
 
