@@ -3,7 +3,7 @@
 {-# language LambdaCase #-}
 
 -- | Database interaction
-module DB (mkDB, DB(..)) where
+module DB (mkDB, DB(..), PostId) where
 
 import GHC.Stack (HasCallStack)
 import qualified Data.Text as T
@@ -15,11 +15,13 @@ import Post
 
 data DB
   = DB
-    { getPost :: DB.Int64 -> IO (DB.Int64, Post)
-    , getPosts :: IO [(DB.Int64, Post)]
-    , insertPost :: Post -> IO DB.Int64
-    , deletePostById :: DB.Int64 -> IO ()
+    { getPost :: PostId -> IO (PostId, Post)
+    , getPosts :: IO [(PostId, Post)]
+    , insertPost :: Post -> IO PostId
+    , deletePostById :: PostId -> IO ()
     }
+
+type PostId = DB.Int64
 
 -----------------------
 -- * Handler smart constructor
@@ -64,17 +66,17 @@ migrateDown = \case
 -----------------------
 -- * Database actions
 
-getPostFromDb :: DB.Pool DB.Database -> DB.Int64 -> IO (DB.Int64, Post)
+getPostFromDb :: DB.Pool DB.Database -> PostId -> IO (PostId, Post)
 getPostFromDb pool id' =
   DB.withPool pool $
     fmap (decodeRow . head) $ uncurry DB.runWith (getPostSQL id')
 
-getPostsFromDb :: DB.Pool DB.Database -> IO [(DB.Int64, Post)]
+getPostsFromDb :: DB.Pool DB.Database -> IO [(PostId, Post)]
 getPostsFromDb pool =
   DB.withPool pool $
     fmap (fmap decodeRow) $ DB.run getPostsSQL
 
-insertPostToDb :: DB.Pool DB.Database -> Post -> IO DB.Int64
+insertPostToDb :: DB.Pool DB.Database -> Post -> IO PostId
 insertPostToDb pool post =
   DB.withPool pool $
     DB.transaction $ do
@@ -82,7 +84,7 @@ insertPostToDb pool post =
       [[DB.SQLInteger i]] <- DB.run getLastPostIdSQL
       pure i
 
-deletePostByIdFromDb :: DB.Pool DB.Database -> DB.Int64 -> IO ()
+deletePostByIdFromDb :: DB.Pool DB.Database -> PostId -> IO ()
 deletePostByIdFromDb pool id' =
   DB.withPool pool $
     uncurry DB.runWith (deletePostSQL id') >>= \case
@@ -106,18 +108,18 @@ getPostsSQL :: DB.SQL
 getPostsSQL =
   "select id, time, author, title, content from posts order by time desc"
 
-getPostSQL :: DB.Int64 -> (DB.SQL, [DB.SQLData])
+getPostSQL :: PostId -> (DB.SQL, [DB.SQLData])
 getPostSQL i =
   ("select id, time, author, title, content from posts where id = ?", [DB.SQLInteger i])
 
-deletePostSQL :: DB.Int64 -> (DB.SQL, [DB.SQLData])
+deletePostSQL :: PostId -> (DB.SQL, [DB.SQLData])
 deletePostSQL i =
   ("delete from posts where id = ?", [DB.SQLInteger i])
 
 -----------------------
 -- ** Decode row
 
-decodeRow :: [DB.SQLData] -> (DB.Int64, Post)
+decodeRow :: [DB.SQLData] -> (PostId, Post)
 decodeRow row =
   case row of
     [DB.SQLInteger i, DB.SQLText dtbs, DB.SQLText author, DB.SQLText title, DB.SQLText content] ->

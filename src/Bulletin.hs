@@ -10,7 +10,6 @@ import qualified Data.Text as T
 import Control.Monad.IO.Class (liftIO)
 import qualified Lucid as H
 import qualified Network.Wai.Middleware.RequestLogger as Logger
-import qualified Database.Sqlite.Easy as DB
 import Post
 import DB
 
@@ -86,12 +85,12 @@ routes db =
 -- ** Business logic
 
 -- | Respond with a list of all posts
-displayAllPosts :: [(DB.Int64, Post)] -> Twain.Response
+displayAllPosts :: [(PostId, Post)] -> Twain.Response
 displayAllPosts =
   Twain.html . H.renderBS . template "Bulletin board - posts" . allPostsHtml
 
 -- | Respond with a specific post or return 404
-displayPost :: (DB.Int64, Post) -> Twain.Response
+displayPost :: (PostId, Post) -> Twain.Response
 displayPost (pid, post) =
       Twain.html $
         H.renderBS $
@@ -99,7 +98,7 @@ displayPost (pid, post) =
             postHtml pid post
 
 -- | Delete a post and respond to the user.
-handleDeletePost :: DB.Int64 -> DB -> IO Twain.Response
+handleDeletePost :: PostId -> DB -> IO Twain.Response
 handleDeletePost pid db = do
   found <- True <$ db.deletePostById pid
   pure $
@@ -146,14 +145,14 @@ template title content =
         content
 
 -- | All posts page.
-allPostsHtml :: [(DB.Int64, Post)] -> Html
+allPostsHtml :: [(PostId, Post)] -> Html
 allPostsHtml posts = do
   H.p_ [ H.class_ "new-button" ] $
     H.a_ [H.href_ "/new"] "New Post"
   mapM_ (uncurry postHtml) posts
 
 -- | A single post as HTML.
-postHtml :: DB.Int64 -> Post -> Html
+postHtml :: PostId -> Post -> Html
 postHtml pid post = do
   H.div_ [ H.class_ "post" ] $ do
     H.div_ [ H.class_ "post-header" ] $ do
