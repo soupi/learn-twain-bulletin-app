@@ -1,5 +1,6 @@
 {-# language OverloadedStrings #-}
 {-# language OverloadedRecordDot #-}
+{-# language BlockArguments #-}
 {-# language LambdaCase #-}
 
 -- | Database interaction
@@ -31,10 +32,10 @@ mkDB connstr = do
   pool <- DB.createSqlitePool connstr
   DB.withPool pool runMigrations
   pure $ DB
-    { getPost = getPostFromDb pool
-    , getPosts = getPostsFromDb pool
-    , insertPost = insertPostToDb pool
-    , deletePostById = deletePostByIdFromDb pool
+    { getPost = DB.withPool pool . getPostFromDb
+    , getPosts = DB.withPool pool getPostsFromDb
+    , insertPost = DB.withPool pool . insertPostToDb
+    , deletePostById = DB.withPool pool . deletePostByIdFromDb
     }
 
 -----------------------
@@ -66,30 +67,26 @@ migrateDown = \case
 -----------------------
 -- * Database actions
 
-getPostFromDb :: DB.Pool DB.Database -> PostId -> IO (PostId, Post)
-getPostFromDb pool id' =
-  DB.withPool pool $
-    fmap (decodeRow . head) $ uncurry DB.runWith (getPostSQL id')
+getPostFromDb :: PostId -> DB.SQLite (PostId, Post)
+getPostFromDb id' =
+  decodeRow . head <$> uncurry DB.runWith (getPostSQL id')
 
-getPostsFromDb :: DB.Pool DB.Database -> IO [(PostId, Post)]
-getPostsFromDb pool =
-  DB.withPool pool $
-    fmap (fmap decodeRow) $ DB.run getPostsSQL
+getPostsFromDb :: DB.SQLite [(PostId, Post)]
+getPostsFromDb =
+  map decodeRow <$> DB.run getPostsSQL
 
-insertPostToDb :: DB.Pool DB.Database -> Post -> IO PostId
-insertPostToDb pool post =
-  DB.withPool pool $
-    DB.transaction $ do
-      [] <- uncurry DB.runWith (insertPostSQL post)
-      [[DB.SQLInteger i]] <- DB.run getLastPostIdSQL
-      pure i
+insertPostToDb :: Post -> DB.SQLite PostId
+insertPostToDb post =
+  DB.transaction do
+    [] <- uncurry DB.runWith (insertPostSQL post)
+    [[DB.SQLInteger i]] <- DB.run getLastPostIdSQL
+    pure i
 
-deletePostByIdFromDb :: DB.Pool DB.Database -> PostId -> IO ()
-deletePostByIdFromDb pool id' =
-  DB.withPool pool $
-    uncurry DB.runWith (deletePostSQL id') >>= \case
-      [] -> pure ()
-      rs -> error (show rs)
+deletePostByIdFromDb :: PostId -> DB.SQLite ()
+deletePostByIdFromDb id' =
+  uncurry DB.runWith (deletePostSQL id') >>= \case
+    [] -> pure ()
+    rs -> error (show rs)
 
 -----------------------
 -- ** SQL
