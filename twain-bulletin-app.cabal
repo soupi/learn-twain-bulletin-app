@@ -5,7 +5,7 @@ description:         Please see readme.md
 homepage:            https://github.com/soupi/learn-twain-bulletin-app
 license-file:        LICENSE
 author:              Gil Mizrahi
-maintainer:          gilmi@posteo.net
+maintainer:          gil@gilmi.net
 copyright:           2022 Gil Mizrahi
 category:            Web
 build-type:          Simple
@@ -29,7 +29,7 @@ library
                      , warp
                      , wai-extra
                      , lucid
-                     , sqlite-easy >= 0.2.0.0
+                     , sqlite-easy >= 1.0.0.0
 
 executable bulletin-app
   hs-source-dirs:      app
